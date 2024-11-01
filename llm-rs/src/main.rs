@@ -36,9 +36,7 @@ fn random_u32(state: &mut u64) -> u32 {
     *state ^= *state >> 12;
     *state ^= *state << 25;
     *state ^= *state >> 27;
-    ((*state).wrapping_mul(0x2545F4914F6CDD1D) >> 32)
-        .try_into()
-        .unwrap()
+    ((*state).wrapping_mul(0x2545F4914F6CDD1D) >> 32) as u32
 }
 
 /// Generates a random `f32` in the range [0, 1).
@@ -156,7 +154,7 @@ pub fn main() {
                     *gen_tokens.ptr.add(t) = next_token as i32;
                     if tokenizer.init_ok {
                         let token_str = tokenizer.decode(next_token);
-                        safe_print(token_str);
+                        safe_print(token_str, &mut lock);
                     } else {
                         write!(lock, "{} ", next_token).unwrap();
                     }
