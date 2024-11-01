@@ -274,6 +274,17 @@ pub unsafe fn matmul_forward_naive(
     C: usize,
     OC: usize,
 ) {
+    unsafe fn callback1(ptr: *mut f32, pos: usize) -> f32 {
+        *ptr.add(pos)
+    }
+    unsafe fn callback2(_ptr: *mut f32, _pos: usize) -> f32 {
+        0.
+    }
+    let callback = if bias.ptr.is_null() {
+        callback2
+    } else {
+        callback1
+    };
     // Create a parallel iterator over the batch dimension
     (0..B).into_par_iter().for_each(|b| {
         // Create a parallel iterator over the sequence length
@@ -288,11 +299,7 @@ pub unsafe fn matmul_forward_naive(
             // Iterate over the output channels
             for o in 0..OC {
                 // Initialize the output value with the bias if provided, otherwise 0.0
-                let mut val = if !bias.ptr.is_null() {
-                    *bias.ptr.add(o)
-                } else {
-                    0.0f32
-                };
+                let mut val = callback(bias.ptr, o);
                 // Perform the dot product
                 for i in 0..C {
                     val += *inp.ptr.add(bt * C + i) * *weight.ptr.add(o * C + i);
@@ -351,12 +358,10 @@ pub unsafe fn matmul_forward(
             for o in 0..OC {
                 // Initialize the result array with bias if present
                 let mut result = [0.0f32; LOOP_UNROLL];
-                for ibt in 0..LOOP_UNROLL {
-                    result[ibt] = if !bias.ptr.is_null() {
-                        *bias.ptr.add(o)
-                    } else {
-                        0.0f32
-                    };
+                if !bias.ptr.is_null() {
+                    for ibt in 0..LOOP_UNROLL {
+                        result[ibt] = *bias.ptr.add(o);
+                    }
                 }
 
                 // Cache the weight value and compute dot products
